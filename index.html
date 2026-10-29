@@ -158,7 +158,7 @@
         <div class="flex items-center gap-4 text-xs text-slate-500">
           <span class="flex items-center gap-1"><i class="fa-solid fa-clock text-indigo-500"></i> Auto Time-Estimates</span>
           <span class="flex items-center gap-1"><i class="fa-solid fa-bullseye text-indigo-500"></i> Eisenhower Priority</span>
-          <span class="flex items-center gap-1"><i class="fa-solid fa-mug-hot text-indigo-500"></i> Smart Break Insert</span>
+          <span class="flex items-center gap-1"><i class="fa-solid fa-mug-hot text-indigo-500"></i> Custom Breaks on Demand</span>
         </div>
         <div class="flex items-center gap-2">
           <button id="clear-btn" type="button" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
@@ -408,31 +408,30 @@
 
     // Preset Samples
     const samples = {
-      student: `Finish AIAA midterm report on smart day planner
-Record 3-minute demo video of the web app
-Review machine learning lecture slides (chapter 4 & 5)
-Quick 30 min run / gym workout
-Pick up lunch at dining hall
+      student: `Finish AIAA midterm project report
+Review machine learning lecture slides (45 mins)
+Pick up lunch at 12:00 PM
 Email professor about final paper topic
 Fold clean laundry and tidy desk
+Quick 30 min gym workout
+Break at 3:30 PM for 15 mins
 Team sync on Discord for 20 mins`,
 
-      work: `Finish Q4 budget spreadsheet for manager
+      work: `Finish Q4 budget spreadsheet (1h)
 Send 5 cold outreach emails to prospective clients
-Fix bug #204 in user login system (about 1.5h)
-Team standup meeting on Zoom
-Lunch and coffee break
+Fix bug #204 in user login system (1.5h)
+Lunch break at 12:30 PM
+Team standup meeting at 2:00 PM
 Review design mockups from Sarah
-Schedule dentist appointment
-Clean out unread emails in inbox`,
+Dentist appointment at 4:00 PM`,
 
-      weekend: `Grocery shopping at Costco (milk, eggs, fruit, veggies)
+      weekend: `Grocery shopping at Costco (45m)
 Deep clean kitchen and wash dishes
 Read 2 chapters of atomic habits
-Meal prep chicken and rice for the week
+Break at 1:00 PM for lunch
+Meal prep for the week
 Call mom and catch up
-Change bed sheets
-Go for a relaxing 45 min walk in the park`
+Go for a relaxing 45 min walk`
     };
 
     function loadSample(type) {
@@ -492,16 +491,35 @@ Go for a relaxing 45 min walk in the park`
       const heavyKeywords = ['project', 'report', 'code', 'study', 'write', 'exam', 'paper', 'budget', 'feature', 'fix bug', 'research'];
       const mediumKeywords = ['clean', 'laundry', 'workout', 'gym', 'cook', 'meeting', 'standup', 'call', 'sync', 'review', 'read', 'prep'];
       const lightKeywords = ['email', 'reply', 'text', 'buy', 'groceries', 'order', 'schedule', 'appointment', 'tidy', 'dishes', 'coffee'];
-      const breakKeywords = ['lunch', 'dinner', 'break', 'snack', 'rest', 'walk', 'nap'];
+      const breakKeywords = ['lunch', 'dinner', 'break', 'snack', 'rest', 'nap'];
 
       const parsedTasks = lines.map((text, idx) => {
         const lower = text.toLowerCase();
         let duration = 30; // default 30 mins
-        let category = 'task';
+        const isBreak = breakKeywords.some(k => lower.includes(k));
+        let category = isBreak ? 'break' : 'task';
         let priority = 'Medium';
         let quadrant = 'Q2'; // Eisenhower Q2 default
 
-        // Check explicit duration in text (e.g. "45 min", "1.5h", "2 hours", "20 mins")
+        // 1. Check explicit target start time (e.g. "at 12 PM", "at 12:30", "at 1pm", "12:00 PM")
+        const atMatch = lower.match(/(?:at|@)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+        const timeOnlyMatch = lower.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+        const timeMatch = atMatch || timeOnlyMatch;
+        let targetMinutes = null;
+
+        if (timeMatch) {
+          let h = parseInt(timeMatch[1], 10);
+          let m = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+          let ap = timeMatch[3] ? timeMatch[3].toLowerCase() : null;
+          if (ap === 'pm' && h < 12) h += 12;
+          if (ap === 'am' && h === 12) h = 0;
+          if (!ap) {
+            if (h >= 1 && h <= 6) h += 12; // 1-6 assumed PM
+          }
+          targetMinutes = h * 60 + m;
+        }
+
+        // 2. Check explicit duration in text (e.g. "45 min", "1.5h", "2 hours", "20 mins")
         const hourMatch = lower.match(/(\d+(\.\d+)?)\s*(h|hr|hour|hours)/);
         const minMatch = lower.match(/(\d+)\s*(m|min|minute|minutes)/);
 
@@ -511,9 +529,8 @@ Go for a relaxing 45 min walk in the park`
           duration = parseInt(minMatch[1], 10);
         } else {
           // Heuristic duration
-          if (breakKeywords.some(k => lower.includes(k))) {
-            duration = lower.includes('lunch') || lower.includes('dinner') ? 45 : 20;
-            category = 'break';
+          if (isBreak) {
+            duration = lower.includes('lunch') || lower.includes('dinner') ? 45 : 30;
           } else if (heavyKeywords.some(k => lower.includes(k))) {
             duration = 60;
           } else if (mediumKeywords.some(k => lower.includes(k))) {
@@ -523,8 +540,8 @@ Go for a relaxing 45 min walk in the park`
           }
         }
 
-        // Eisenhower matrix & priority evaluation
-        if (category === 'break') {
+        // 3. Eisenhower matrix & priority evaluation
+        if (isBreak) {
           priority = 'Low';
           quadrant = 'Q4';
         } else if (lower.includes('urgent') || lower.includes('due') || lower.includes('exam') || lower.includes('midterm') || lower.includes('today') || lower.includes('asap')) {
@@ -550,75 +567,105 @@ Go for a relaxing 45 min walk in the park`
           duration: Math.max(10, duration),
           priority: priority,
           quadrant: quadrant,
-          category: category
+          category: category,
+          targetMinutes: targetMinutes
         };
       });
 
-      // Sort tasks strategically:
-      // Q1 first, Q2 next, Q3 and Q4 grouped
-      // Put deep work tasks in the morning!
-      const sortedTasks = [...parsedTasks].sort((a, b) => {
-        if (a.category === 'break' && b.category !== 'break') return 1;
-        if (b.category === 'break' && a.category !== 'break') return -1;
-        const quadOrder = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 };
-        return quadOrder[a.quadrant] - quadOrder[b.quadrant];
-      });
-
-      // Build Time-Blocked Schedule starting at startTimeStr
+      // Scheduling starting at startTimeStr
       let [currH, currM] = startTimeStr.split(':').map(Number);
       let currentTimeMinutes = currH * 60 + currM;
 
+      let fixedTasks = parsedTasks.filter(t => t.targetMinutes !== null)
+        .sort((a, b) => a.targetMinutes - b.targetMinutes);
+
+      let flexibleTasks = parsedTasks.filter(t => t.targetMinutes === null)
+        .sort((a, b) => {
+          const quadOrder = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 };
+          return quadOrder[a.quadrant] - quadOrder[b.quadrant];
+        });
+
       const schedule = [];
-      let continuousWorkMinutes = 0;
       let totalWorkMinutes = 0;
       let totalBreakMinutes = 0;
 
-      const bufferDuration = pace === 'focused' ? 5 : (pace === 'relaxed' ? 20 : 10);
-      const maxWorkBeforeBreak = pace === 'focused' ? 120 : (pace === 'relaxed' ? 60 : 90);
+      while (flexibleTasks.length > 0 || fixedTasks.length > 0) {
+        const nextFixed = fixedTasks[0];
 
-      sortedTasks.forEach((t, i) => {
-        // Auto-insert a short mental recharge break if working for too long without one
-        if (continuousWorkMinutes >= maxWorkBeforeBreak && t.category !== 'break') {
-          const breakStart = currentTimeMinutes;
-          const breakLen = 15;
-          const breakEnd = breakStart + breakLen;
-          schedule.push({
-            id: 'auto_break_' + i,
-            title: '☕ Mental Recharge Break & Hydration',
-            startTime: formatMinutes(breakStart),
-            endTime: formatMinutes(breakEnd),
-            duration: breakLen,
-            priority: 'Low',
-            category: 'break',
-            quadrant: 'Q4',
-            isAutoBreak: true
-          });
-          currentTimeMinutes = breakEnd;
-          totalBreakMinutes += breakLen;
-          continuousWorkMinutes = 0;
-        }
+        if (nextFixed) {
+          if (currentTimeMinutes >= nextFixed.targetMinutes || flexibleTasks.length === 0) {
+            fixedTasks.shift();
+            const start = Math.max(currentTimeMinutes, nextFixed.targetMinutes);
+            const end = start + nextFixed.duration;
+            schedule.push({
+              ...nextFixed,
+              startTime: formatMinutes(start),
+              endTime: formatMinutes(end)
+            });
+            currentTimeMinutes = end;
+            if (nextFixed.category === 'break') {
+              totalBreakMinutes += nextFixed.duration;
+            } else {
+              totalWorkMinutes += nextFixed.duration;
+            }
+            continue;
+          }
 
-        // Add task
-        const start = currentTimeMinutes;
-        const end = start + t.duration;
-        schedule.push({
-          ...t,
-          startTime: formatMinutes(start),
-          endTime: formatMinutes(end)
-        });
+          const gap = nextFixed.targetMinutes - currentTimeMinutes;
+          const fitIndex = flexibleTasks.findIndex(t => t.duration <= gap);
 
-        currentTimeMinutes = end + (t.category !== 'break' ? bufferDuration : 0);
-
-        if (t.category === 'break') {
-          totalBreakMinutes += t.duration;
-          continuousWorkMinutes = 0;
+          if (fitIndex !== -1) {
+            const task = flexibleTasks.splice(fitIndex, 1)[0];
+            const start = currentTimeMinutes;
+            const end = start + task.duration;
+            schedule.push({
+              ...task,
+              startTime: formatMinutes(start),
+              endTime: formatMinutes(end)
+            });
+            currentTimeMinutes = end;
+            if (task.category === 'break') {
+              totalBreakMinutes += task.duration;
+            } else {
+              totalWorkMinutes += task.duration;
+            }
+            continue;
+          } else {
+            fixedTasks.shift();
+            const start = nextFixed.targetMinutes;
+            const end = start + nextFixed.duration;
+            schedule.push({
+              ...nextFixed,
+              startTime: formatMinutes(start),
+              endTime: formatMinutes(end)
+            });
+            currentTimeMinutes = end;
+            if (nextFixed.category === 'break') {
+              totalBreakMinutes += nextFixed.duration;
+            } else {
+              totalWorkMinutes += nextFixed.duration;
+            }
+            continue;
+          }
         } else {
-          totalWorkMinutes += t.duration;
-          continuousWorkMinutes += t.duration;
+          const task = flexibleTasks.shift();
+          const start = currentTimeMinutes;
+          const end = start + task.duration;
+          schedule.push({
+            ...task,
+            startTime: formatMinutes(start),
+            endTime: formatMinutes(end)
+          });
+          currentTimeMinutes = end;
+          if (task.category === 'break') {
+            totalBreakMinutes += task.duration;
+          } else {
+            totalWorkMinutes += task.duration;
+          }
         }
-      });
+      }
 
-      // Frog of the day: Find highest priority task
+      // Frog of the day: Find highest priority non-break task
       const frogCandidate = schedule.find(s => s.priority === 'High' && s.category !== 'break') || schedule.find(s => s.category !== 'break') || schedule[0];
 
       return {
@@ -628,7 +675,7 @@ Go for a relaxing 45 min walk in the park`
         totalBreakMinutes,
         finishTime: formatMinutes(currentTimeMinutes),
         frog: frogCandidate,
-        advice: generateCoachAdvice(totalWorkMinutes, parsedTasks.length, pace)
+        advice: generateCoachAdvice(totalWorkMinutes, parsedTasks.length, totalBreakMinutes)
       };
     }
 
@@ -641,14 +688,16 @@ Go for a relaxing 45 min walk in the park`
       return `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
     }
 
-    function generateCoachAdvice(workMinutes, taskCount, pace) {
+    function generateCoachAdvice(workMinutes, taskCount, breakMinutes) {
       const hours = (workMinutes / 60).toFixed(1);
-      if (workMinutes > 360) {
-        return `⚠️ You have planned ~${hours} hours of high-focus tasks today. To prevent cognitive fatigue, strictly honor the scheduled breaks and protect your highest-impact task first!`;
-      } else if (taskCount > 7) {
-        return `💡 You have a diverse list of ${taskCount} items today. We batched similar administrative tasks in the afternoon to preserve your peak morning focus for deep work.`;
+      if (breakMinutes === 0 && workMinutes > 240) {
+        return `💡 You have scheduled ~${hours}h of work with no breaks. If you feel tired later, consider adding a short break (e.g., "Break at 1:00 PM").`;
+      } else if (workMinutes > 360) {
+        return `⚠️ You have planned ~${hours} hours of tasks today. Be sure to protect your #1 priority task first!`;
       } else {
-        return `✨ Your schedule is well-balanced with realistic ~${hours}h of focused work. Take each time-block one at a time and eliminate phone notifications during deep work intervals!`;
+        return `✨ Your schedule looks clean and well-structured. Take each time-block one at a time and focus on your frog task first!`;
+      }
+    }
       }
     }
 

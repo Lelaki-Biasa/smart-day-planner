@@ -22,7 +22,7 @@ I wanted to make a simple tool where I could just brain-dump whatever is in my h
 - **Estimates time automatically**: If you mention a duration like "gym 45 mins" or "study 1.5h", it uses that. If not, it makes a reasonable guess based on what the task is (e.g., shorter for emails, longer for coursework).
 - **Highlights the "Frog"**: Finds your most demanding task and puts it first in the morning so you tackle the hardest thing while you have energy.
 - **Sorts by priority (Eisenhower Matrix)**: Categorizes tasks into four groups: what to do first, what to schedule, what can be batched together, and what can wait.
-- **Adds breather breaks**: If you have more than 90 minutes of continuous focus, it automatically schedules a short 15-minute coffee/water break so you don't burn out by 2:00 PM.
+- **Break times on your terms**: Only adds breaks when you ask for them (e.g. "Break at 12 PM" or "Lunch at 12:30"). It locks them into the right time slot and schedules your tasks around them.
 - **Works offline or with live AI**: Runs completely client-side in your browser right out of the box (zero setup, no API key needed), but also has an optional toggle if you want to plug in an OpenAI/Gemini API key.
 - **Exports to your calendar**: Once you like the schedule, you can export a `.ics` file with one click and import it into Google Calendar, Apple Calendar, or Outlook.
 
