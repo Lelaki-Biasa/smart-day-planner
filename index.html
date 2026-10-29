@@ -24,6 +24,7 @@
       }
     }
   </script>
+  <script src="./planner-utils.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     body {
@@ -83,7 +84,7 @@
           <option value="offline" selected>⚡ Smart Built-in Engine (Instant, Offline, 0-setup)</option>
           <option value="api">🌐 Live LLM API (OpenAI / Gemini / Groq compatible)</option>
         </select>
-        <p class="text-[11px] text-slate-500 mt-1">Built-in mode requires no API keys and runs 100% reliably in class demos.</p>
+        <p class="text-[11px] text-slate-500 mt-1">Built-in mode needs no API key. Live mode sends your task list and key to the endpoint shown below.</p>
       </div>
       <div id="api-key-container" class="hidden">
         <label class="block font-semibold text-slate-700 mb-1">LLM API Key (Optional)</label>
@@ -99,9 +100,9 @@
         <div class="flex items-center gap-2">
           <span class="w-20 text-slate-600">Work Pace:</span>
           <select id="work-pace" class="bg-white border border-slate-300 rounded px-2 py-1 text-xs">
-            <option value="focused">High Focus (Shorter breaks)</option>
-            <option value="balanced" selected>Balanced (15m buffer / Pomodoro)</option>
-            <option value="relaxed">Relaxed (Gentle pace + extra breaks)</option>
+            <option value="focused">High Focus (shorter estimates)</option>
+            <option value="balanced" selected>Balanced (standard estimates)</option>
+            <option value="relaxed">Relaxed (longer estimates)</option>
           </select>
         </div>
       </div>
@@ -541,6 +542,7 @@ Go for a relaxing 45 min walk`
       const parsedTasks = lines.map((text, idx) => {
         const lower = text.toLowerCase();
         let duration = 30; // default 30 mins
+        let hasExplicitDuration = false;
         const isBreak = breakKeywords.some(k => lower.includes(k));
         let category = isBreak ? 'break' : 'task';
         let priority = 'Medium';
@@ -570,8 +572,10 @@ Go for a relaxing 45 min walk`
 
         if (hourMatch) {
           duration = Math.round(parseFloat(hourMatch[1]) * 60);
+          hasExplicitDuration = true;
         } else if (minMatch) {
           duration = parseInt(minMatch[1], 10);
+          hasExplicitDuration = true;
         } else {
           // Heuristic duration
           if (isBreak) {
@@ -604,6 +608,11 @@ Go for a relaxing 45 min walk`
         } else {
           priority = 'Low';
           quadrant = 'Q4';
+        }
+
+        if (!hasExplicitDuration && !isBreak) {
+          const paceMultiplier = { focused: 0.9, balanced: 1, relaxed: 1.2 }[pace] || 1;
+          duration = Math.round(duration * paceMultiplier);
         }
 
         return {
@@ -747,7 +756,7 @@ Go for a relaxing 45 min walk`
     // Live LLM API call fallback
     async function parseAndScheduleWithAPI(rawText, startTimeStr, apiKey, endpoint) {
       const prompt = `You are an elite productivity AI. Convert this messy to-do list into a prioritized, time-blocked schedule starting at ${startTimeStr}.
-Respond ONLY with a valid JSON object matching this schema:
+Respond ONLY with a valid JSON object matching this schema. Include a unique simple id for each schedule item, use 12-hour times with AM/PM, and include every required field:
 {
   "schedule": [
     {
@@ -780,9 +789,11 @@ ${rawText}`;
         })
       });
 
+      if (!res.ok) throw new Error(`API request failed (${res.status}). Check the endpoint and key.`);
       const data = await res.json();
-      const content = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(content);
+      const content = data?.choices?.[0]?.message?.content;
+      if (typeof content !== 'string' || !content.trim()) throw new Error('The AI endpoint returned no schedule content.');
+      return JSON.parse(content.replace(/```json/gi, '').replace(/```/g, '').trim());
     }
 
     // UI Event Handlers
@@ -817,7 +828,7 @@ ${rawText}`;
           result = parseAndScheduleLocally(rawText, startTime, pace);
         }
 
-        renderScheduleOutput(result);
+        renderScheduleOutput(TaskFlowUtils.normalizeScheduleData(result));
       } catch (err) {
         alert("Scheduling Error: " + err.message);
       } finally {
@@ -834,7 +845,7 @@ ${rawText}`;
       const workH = Math.floor(data.totalWorkMinutes / 60);
       const workM = data.totalWorkMinutes % 60;
       document.getElementById('stat-work-time').textContent = `${workH}h ${workM.toString().padStart(2, '0')}m`;
-      document.getElementById('stat-break-time').textContent = `${data.totalBreakMinutes || 30}m`;
+      document.getElementById('stat-break-time').textContent = `${data.totalBreakMinutes ?? 0}m`;
       document.getElementById('stat-finish-time').textContent = data.finishTime || data.schedule[data.schedule.length - 1].endTime;
 
       // Update Frog
@@ -889,9 +900,9 @@ ${rawText}`;
                 <span class="mt-0.5 text-emerald-600"><i class="fa-solid fa-mug-hot text-sm"></i></span>
               `}
               <div>
-                <h4 id="title-${item.id}" class="text-sm font-bold text-slate-800 ${isBreak ? 'italic text-emerald-900' : ''}">${item.title}</h4>
+                <h4 id="title-${item.id}" class="text-sm font-bold text-slate-800 ${isBreak ? 'italic text-emerald-900' : ''}">${TaskFlowUtils.escapeHtml(item.title)}</h4>
                 <div class="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                  <span class="font-medium text-slate-700"><i class="fa-regular fa-clock text-indigo-500 mr-1"></i>${item.startTime} &ndash; ${item.endTime}</span>
+                  <span class="font-medium text-slate-700"><i class="fa-regular fa-clock text-indigo-500 mr-1"></i>${TaskFlowUtils.escapeHtml(item.startTime)} &ndash; ${TaskFlowUtils.escapeHtml(item.endTime)}</span>
                   <span>•</span>
                   <span>${item.duration} mins</span>
                 </div>
@@ -929,7 +940,7 @@ ${rawText}`;
             const li = document.createElement('li');
             li.className = "flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/80 shadow-2xs";
             li.innerHTML = `
-              <span class="font-medium text-slate-800">${item.title}</span>
+              <span class="font-medium text-slate-800">${TaskFlowUtils.escapeHtml(item.title)}</span>
               <span class="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded">${item.duration}m</span>
             `;
             listEl.appendChild(li);
@@ -971,6 +982,7 @@ ${rawText}`;
     async function fetchWeatherForCity(cityName) {
       try {
         const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1`);
+        if (!geoRes.ok) throw new Error(`Geocoding request failed (${geoRes.status})`);
         const geoData = await geoRes.json();
         if (!geoData.results || geoData.results.length === 0) {
           throw new Error("City not found");
@@ -980,12 +992,14 @@ ${rawText}`;
         document.getElementById('weather-city').textContent = `📍 ${name}`;
 
         const forecastRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`);
+        if (!forecastRes.ok) throw new Error(`Forecast request failed (${forecastRes.status})`);
         weatherCache = await forecastRes.json();
         updateWeatherDisplay();
       } catch (err) {
         console.warn("Weather notice:", err);
-        document.getElementById('weather-temp').textContent = '24°C';
-        document.getElementById('weather-desc').textContent = 'Clear';
+        weatherCache = null;
+        document.getElementById('weather-temp').textContent = 'Unavailable';
+        document.getElementById('weather-desc').textContent = 'Could not load forecast';
         document.getElementById('weather-city').textContent = `📍 ${cityName}`;
       }
     }
@@ -1002,9 +1016,9 @@ ${rawText}`;
 
     function updateWeatherDisplay() {
       const chosenDate = document.getElementById('plan-date').value;
-      let temp = '24°C';
-      let desc = 'Clear & Sunny';
-      let icon = 'fa-sun text-amber-500';
+      let temp = 'Unavailable';
+      let desc = 'No forecast for this date';
+      let icon = 'fa-circle-question text-slate-400';
 
       if (weatherCache && weatherCache.daily && weatherCache.daily.time) {
         const daily = weatherCache.daily;
@@ -1014,11 +1028,6 @@ ${rawText}`;
           const minT = Math.round(daily.temperature_2m_min[dayIdx]);
           const info = getWeatherInfo(daily.weathercode[dayIdx]);
           temp = `${minT}°C ~ ${maxT}°C`;
-          desc = info.text;
-          icon = info.icon;
-        } else if (weatherCache.current_weather) {
-          const info = getWeatherInfo(weatherCache.current_weather.weathercode);
-          temp = `${Math.round(weatherCache.current_weather.temperature)}°C`;
           desc = info.text;
           icon = info.icon;
         }
@@ -1091,10 +1100,10 @@ ${rawText}`;
         const dtEnd = `${datePrefix}${convertToIcsTime(item.endTime)}`;
         icsContent.push('BEGIN:VEVENT');
         icsContent.push(`UID:${Date.now()}_${idx}@taskflow.ai`);
-        icsContent.push(`SUMMARY:${item.title.replace(/[,;]/g, '')}`);
+        icsContent.push(`SUMMARY:${TaskFlowUtils.escapeIcsText(item.title)}`);
         icsContent.push(`DTSTART:${dtStart}`);
         icsContent.push(`DTEND:${dtEnd}`);
-        icsContent.push(`DESCRIPTION:Generated by TaskFlow AI. Priority: ${item.priority || 'Normal'}`);
+        icsContent.push(`DESCRIPTION:${TaskFlowUtils.escapeIcsText(`Generated by TaskFlow AI. Priority: ${item.priority || 'Normal'}`)}`);
         icsContent.push('STATUS:CONFIRMED');
         icsContent.push('END:VEVENT');
       });
@@ -1140,3 +1149,4 @@ ${rawText}`;
   </script>
 </body>
 </html>
+
