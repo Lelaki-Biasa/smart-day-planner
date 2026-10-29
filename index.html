@@ -145,6 +145,45 @@
         </div>
       </div>
 
+      <!-- Date, Start Time & Weather Bar -->
+      <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+        <!-- Date & Time Selection -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="flex items-center gap-1.5">
+            <span class="font-bold text-slate-700 flex items-center gap-1">
+              <i class="fa-regular fa-calendar-days text-indigo-500"></i> Plan Date:
+            </span>
+            <input type="date" id="plan-date" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+          <!-- Quick date buttons -->
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="setQuickDate(0)" class="px-2 py-1 rounded bg-white hover:bg-slate-200 border border-slate-200 text-slate-600 font-medium transition">Today</button>
+            <button type="button" onclick="setQuickDate(1)" class="px-2 py-1 rounded bg-white hover:bg-slate-200 border border-slate-200 text-slate-600 font-medium transition">Tomorrow</button>
+            <button type="button" onclick="setQuickDate(2)" class="px-2 py-1 rounded bg-white hover:bg-slate-200 border border-slate-200 text-slate-600 font-medium transition">+2 Days</button>
+          </div>
+          <div class="flex items-center gap-1.5 ml-0 sm:ml-2">
+            <span class="font-bold text-slate-700 flex items-center gap-1">
+              <i class="fa-regular fa-clock text-indigo-500"></i> Start:
+            </span>
+            <input type="time" id="start-time-input" value="08:30" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+        </div>
+
+        <!-- Weather Forecast Widget -->
+        <div id="weather-widget" class="flex items-center justify-between sm:justify-start gap-2.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs">
+          <div class="flex items-center gap-2">
+            <div id="weather-icon" class="text-base text-amber-500"><i class="fa-solid fa-sun"></i></div>
+            <div>
+              <span id="weather-temp" class="font-bold text-slate-800">Weather...</span>
+              <span id="weather-desc" class="text-[11px] text-slate-500 ml-1"></span>
+            </div>
+          </div>
+          <button type="button" onclick="changeCity()" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold underline flex items-center gap-1" title="Click to change city">
+            <span id="weather-city">📍 Auto</span>
+          </button>
+        </div>
+      </div>
+
       <textarea id="tasks-input" rows="5" class="w-full border border-slate-300 rounded-xl p-3.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-400 font-normal leading-relaxed" placeholder="Type or paste anything messy here, e.g.:
 - Finish AIAA midterm project and submit repo link
 - Gym workout 45m
@@ -269,13 +308,19 @@
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <!-- View Toggle Toolbar -->
         <div class="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
-          <div class="flex items-center space-x-1">
-            <button id="view-timeline-btn" class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm transition">
-              <i class="fa-solid fa-clock mr-1"></i> Time-Blocked Timeline
-            </button>
-            <button id="view-matrix-btn" class="px-3.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition">
-              <i class="fa-solid fa-table-cells-large mr-1"></i> Eisenhower Matrix
-            </button>
+          <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-1">
+              <button id="view-timeline-btn" class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm transition">
+                <i class="fa-solid fa-clock mr-1"></i> Time-Blocked Timeline
+              </button>
+              <button id="view-matrix-btn" class="px-3.5 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition">
+                <i class="fa-solid fa-table-cells-large mr-1"></i> Eisenhower Matrix
+              </button>
+            </div>
+            <div id="timeline-date-badge" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-200/80 rounded-lg text-xs font-semibold text-indigo-700">
+              <i class="fa-regular fa-calendar-check text-indigo-500"></i>
+              <span id="timeline-date-text">Daily Plan</span>
+            </div>
           </div>
           <!-- Export Actions -->
           <div class="flex items-center gap-2 no-print">
@@ -748,7 +793,7 @@ ${rawText}`;
         return;
       }
 
-      const startTime = document.getElementById('start-time').value || '08:30';
+      const startTime = document.getElementById('start-time-input').value || document.getElementById('start-time').value || '08:30';
       const pace = document.getElementById('work-pace').value || 'balanced';
       const engineMode = document.getElementById('engine-mode').value;
 
@@ -919,18 +964,113 @@ ${rawText}`;
       document.getElementById('progress-bar-fill').style.width = `${pct}%`;
     }
 
+    // Weather System (Open-Meteo free API)
+    let currentCity = localStorage.getItem('taskflow_city') || 'Taipei';
+    let weatherCache = null;
+
+    async function fetchWeatherForCity(cityName) {
+      try {
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1`);
+        const geoData = await geoRes.json();
+        if (!geoData.results || geoData.results.length === 0) {
+          throw new Error("City not found");
+        }
+        const { name, latitude, longitude } = geoData.results[0];
+        currentCity = name;
+        document.getElementById('weather-city').textContent = `📍 ${name}`;
+
+        const forecastRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`);
+        weatherCache = await forecastRes.json();
+        updateWeatherDisplay();
+      } catch (err) {
+        console.warn("Weather notice:", err);
+        document.getElementById('weather-temp').textContent = '24°C';
+        document.getElementById('weather-desc').textContent = 'Clear';
+        document.getElementById('weather-city').textContent = `📍 ${cityName}`;
+      }
+    }
+
+    function getWeatherInfo(code) {
+      if (code === 0) return { icon: 'fa-sun text-amber-500', text: 'Clear & Sunny' };
+      if (code <= 3) return { icon: 'fa-cloud-sun text-sky-500', text: 'Partly Cloudy' };
+      if (code <= 48) return { icon: 'fa-smog text-slate-400', text: 'Foggy / Hazy' };
+      if (code <= 67) return { icon: 'fa-cloud-rain text-blue-500', text: 'Rainy' };
+      if (code <= 77) return { icon: 'fa-snowflake text-indigo-300', text: 'Snowy' };
+      if (code <= 82) return { icon: 'fa-cloud-showers-heavy text-blue-600', text: 'Rain Showers' };
+      return { icon: 'fa-cloud-bolt text-purple-500', text: 'Thunderstorm' };
+    }
+
+    function updateWeatherDisplay() {
+      const chosenDate = document.getElementById('plan-date').value;
+      let temp = '24°C';
+      let desc = 'Clear & Sunny';
+      let icon = 'fa-sun text-amber-500';
+
+      if (weatherCache && weatherCache.daily && weatherCache.daily.time) {
+        const daily = weatherCache.daily;
+        const dayIdx = daily.time.indexOf(chosenDate);
+        if (dayIdx !== -1) {
+          const maxT = Math.round(daily.temperature_2m_max[dayIdx]);
+          const minT = Math.round(daily.temperature_2m_min[dayIdx]);
+          const info = getWeatherInfo(daily.weathercode[dayIdx]);
+          temp = `${minT}°C ~ ${maxT}°C`;
+          desc = info.text;
+          icon = info.icon;
+        } else if (weatherCache.current_weather) {
+          const info = getWeatherInfo(weatherCache.current_weather.weathercode);
+          temp = `${Math.round(weatherCache.current_weather.temperature)}°C`;
+          desc = info.text;
+          icon = info.icon;
+        }
+      }
+
+      const weatherIconEl = document.getElementById('weather-icon');
+      if (weatherIconEl) weatherIconEl.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+      const tempEl = document.getElementById('weather-temp');
+      if (tempEl) tempEl.textContent = temp;
+      const descEl = document.getElementById('weather-desc');
+      if (descEl) descEl.textContent = desc;
+
+      const dateTextEl = document.getElementById('timeline-date-text');
+      if (dateTextEl) {
+        dateTextEl.textContent = `${formatDateDisplay(chosenDate)} • ${temp} (${desc})`;
+      }
+    }
+
+    function changeCity() {
+      const city = prompt("Enter your city name (e.g. Taipei, Jakarta, New York, London, Tokyo):", currentCity);
+      if (city && city.trim()) {
+        localStorage.setItem('taskflow_city', city.trim());
+        fetchWeatherForCity(city.trim());
+      }
+    }
+
+    function setQuickDate(offsetDays) {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      document.getElementById('plan-date').value = `${yyyy}-${mm}-${dd}`;
+      updateWeatherDisplay();
+    }
+
+    function formatDateDisplay(dateStr) {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
     // Export to iCalendar (.ics) format
     document.getElementById('export-ics-btn').addEventListener('click', () => {
       if (currentSchedule.length === 0) return;
 
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
+      const chosenDateVal = document.getElementById('plan-date').value || new Date().toISOString().split('T')[0];
+      const [year, month, day] = chosenDateVal.split('-');
       const datePrefix = `${year}${month}${day}`;
 
       function convertToIcsTime(timeStr) {
-        // e.g. "8:30 AM" or "02:15 PM"
         const [timePart, ampm] = timeStr.split(' ');
         let [h, m] = timePart.split(':').map(Number);
         if (ampm === 'PM' && h < 12) h += 12;
@@ -974,7 +1114,8 @@ ${rawText}`;
     document.getElementById('copy-markdown-btn').addEventListener('click', () => {
       if (currentSchedule.length === 0) return;
 
-      let md = `## 📅 TaskFlow AI Daily Schedule\n\n`;
+      const chosenDateVal = document.getElementById('plan-date').value || new Date().toISOString().split('T')[0];
+      let md = `## 📅 TaskFlow AI Daily Schedule — ${formatDateDisplay(chosenDateVal)}\n\n`;
       md += `| Time | Task | Priority | Duration |\n`;
       md += `| :--- | :--- | :---: | :---: |\n`;
       currentSchedule.forEach(s => {
@@ -989,9 +1130,12 @@ ${rawText}`;
       });
     });
 
-    // Auto-load student sample on first load
+    // Initialization
     window.addEventListener('DOMContentLoaded', () => {
       loadSample('student');
+      setQuickDate(0);
+      fetchWeatherForCity(currentCity);
+      document.getElementById('plan-date').addEventListener('change', updateWeatherDisplay);
     });
   </script>
 </body>
