@@ -282,7 +282,7 @@ function card(slide, opts) {
   // Review ML (Q4). Lunch has no stated duration -> keyword default 45 min.
   const rows = [
     ['09:00', '🐸 Report (frog) — 60m', C.amber],
-    ['10:00', 'Email professor — 60m', 'E2E8F0'],
+    ['10:00', 'Email prof re: paper topic — 60m', 'E2E8F0'],
     ['11:00', 'Review ML slides — 45m', 'E2E8F0'],
     ['12:00', '☕ Lunch — locked 45m', C.emerald],
     ['12:45', 'Gym workout — 30m', 'E2E8F0'],
