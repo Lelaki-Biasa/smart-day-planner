@@ -2,4 +2,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Office lock files (created while a document is open)
+~$*
+
+# Deliverables handed in separately, not stored in the repo
 *.docx
+*.pptx

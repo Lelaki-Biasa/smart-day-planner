@@ -57,6 +57,29 @@ Team sync on Discord for 20 mins
 
 ---
 
+## Testing
+
+The scheduling and escaping logic has an automated test suite that runs on Node's built-in test runner — no extra packages to install.
+
+```bash
+npm test
+```
+
+Five tests cover:
+
+- **HTML escaping** — task titles containing markup (e.g. `<script>`) are escaped before being inserted into the page.
+- **Calendar escaping** — `.ics` text values escape commas, semicolons, backslashes, and line breaks per RFC 5545.
+- **Schedule validation** — totals (work minutes, break minutes, finish time, frog start time) are derived from validated task data.
+- **Input rejection** — unsafe or malformed task IDs, and duplicate IDs, are rejected with a clear error.
+
+You can also syntax-check the files directly:
+
+```bash
+node --check planner-utils.js
+```
+
+---
+
 ## Tech Used
 
 - HTML5, Vanilla JavaScript, and Tailwind CSS (loaded via CDN)
