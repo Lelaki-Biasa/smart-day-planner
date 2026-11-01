@@ -20,8 +20,8 @@ const {
 // ---------------------------------------------------------------------------
 // Content — edit these strings and re-run `node scripts/generate-report.js`
 // ---------------------------------------------------------------------------
-const AUTHOR = '[Your Name]';
-const STUDENT_ID = '[Student ID]';
+const AUTHOR = 'Marvel Hubert Rahardjo';
+const STUDENT_ID = 'W11521407';
 const COURSE = 'AIAA';
 const REPORT_DATE = 'November 2, 2026';
 const REPO_URL = 'https://github.com/Lelaki-Biasa/smart-day-planner';
@@ -424,21 +424,6 @@ const section5 = [
   p(
     'The biggest gap in the current version is that a generated plan is fixed. Allowing the user to drag a task into a new slot would turn it from a generated list into a plan they own — the single highest-value interaction change available.'
   ),
-
-  h2('5. Installable Offline App (PWA)'),
-  p(
-    'A service worker with cached assets so the app installs to a home screen and works with no connection at all, not merely no API key.'
-  ),
-
-  h2('6. Real User Testing'),
-  p(
-    'Putting the app in front of five classmate users, watching where they hesitate without offering help, and fixing those points first. The roadmap above is my hypothesis; this is how it would be confirmed or corrected.'
-  ),
-
-  h2('7. Move the API Key Server-Side'),
-  p(
-    'Today the optional live-mode key stays in the browser session. If live mode ever becomes a hosted feature, the key should sit behind a small server so it is never shipped to the client.'
-  ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -453,13 +438,23 @@ const appendix = [
     shading: { fill: 'F2F2F2' },
     indent: { left: 360, right: 360 },
     children: [
+      'Finish AIAA midterm project report',
+      'Review machine learning lecture slides (45 mins)',
+      'Break at 12:00 PM for lunch',
+      'Email professor about final paper topic',
+      'Fold clean laundry and tidy desk',
+      'Quick 30 min gym workout',
+      'Break at 3:30 PM for 15 mins',
+      'Team sync on Discord for 20 mins',
+    ].map((line, idx) =>
       new TextRun({
-        text:
-          'Finish AIAA midterm project report\nReview machine learning lecture slides (45 mins)\nBreak at 12:00 PM for lunch\nEmail professor about final paper topic\nFold clean laundry and tidy desk\nQuick 30 min gym workout\nBreak at 3:30 PM for 15 mins\nTeam sync on Discord for 20 mins',
+        text: line,
         font: 'Consolas',
         size: 18,
-      }),
-    ],
+        // `break` emits a real <w:br/> so each line starts on its own row
+        break: idx === 0 ? 0 : 1,
+      })
+    ),
   }),
   p(
     'TaskFlow returns a timeline starting at the chosen time: the report is scheduled first as the frog, the two typed breaks are locked at 12:00 PM and 3:30 PM with tasks routed around them, stated durations are honoured (45, 30, and 20 minutes), and the remaining tasks are estimated and sorted by Eisenhower quadrant. The day can then be exported to a calendar file.'
@@ -539,7 +534,7 @@ const doc = new Document({
   ],
 });
 
-const outPath = path.join(__dirname, '..', 'AIAA-Midterm-Report-TaskFlow-v2.docx');
+const outPath = path.join(__dirname, '..', 'AIAA-Midterm-Report-TaskFlow.docx');
 Packer.toBuffer(doc).then((buffer) => {
   fs.writeFileSync(outPath, buffer);
   console.log('Wrote ' + outPath);

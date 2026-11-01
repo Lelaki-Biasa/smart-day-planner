@@ -148,7 +148,7 @@ function card(slide, opts) {
     fontFace: FONT, fontSize: 17, color: 'CBD5E1', lineSpacingMultiple: 1.25,
   });
 
-  s.addText('[Your Name]   ·   AIAA   ·   November 2, 2026', {
+  s.addText('MARVEL HUBERT RAHARDJO   ·   AIAA   ·   November 2, 2026', {
     x: 0.85, y: 6.4, w: 9, h: 0.4,
     fontFace: FONT, fontSize: 13, color: C.slateLight,
   });
@@ -277,12 +277,15 @@ function card(slide, opts) {
     fontFace: FONT, fontSize: 11, bold: true, color: '818CF8', charSpacing: 2,
   });
 
+  // Verified against the real scheduler (scripts/verify-slide-claims.js):
+  // "paper" is a heavy keyword, so Email classifies Q2/High and sorts before
+  // Review ML (Q4). Lunch has no stated duration -> keyword default 45 min.
   const rows = [
     ['09:00', '🐸 Report (frog) — 60m', C.amber],
-    ['10:00', 'Review ML slides — 45m', 'E2E8F0'],
-    ['10:45', 'Email professor — 60m', 'E2E8F0'],
-    ['12:00', '☕ Lunch — locked 30m', C.emerald],
-    ['12:30', 'Gym workout — 30m', 'E2E8F0'],
+    ['10:00', 'Email professor — 60m', 'E2E8F0'],
+    ['11:00', 'Review ML slides — 45m', 'E2E8F0'],
+    ['12:00', '☕ Lunch — locked 45m', C.emerald],
+    ['12:45', 'Gym workout — 30m', 'E2E8F0'],
     ['15:30', '☕ Break — locked 15m', C.emerald],
   ];
   rows.forEach((r, i) => {
@@ -386,58 +389,34 @@ function card(slide, opts) {
   title(s, 'Tested, not assumed', 0.7, 0.9, 11.8, 32);
   pageNum(s, 6);
 
-  // Big stat strip
-  const stats = [
-    ['5 / 5', 'unit tests passing', C.emerald],
-    ['0.04 ms', 'parse time (17 lines)', C.indigo],
-    ['12:00 PM', 'break locks exactly', C.amber],
-    ['RFC 5545', '.ics standard', C.violet],
-  ];
-  stats.forEach((st, i) => {
-    const x = 0.7 + i * 3.1;
-    s.addShape(pptx.ShapeType.roundRect, {
-      x, y: 2.1, w: 2.9, h: 1.3, rectRadius: 0.08,
-      fill: { color: C.white }, line: { color: C.line, width: 1 },
-    });
-    s.addText(st[0], {
-      x, y: 2.28, w: 2.9, h: 0.55,
-      fontFace: FONT, fontSize: 26, bold: true, color: st[2], align: 'center',
-    });
-    s.addText(st[1], {
-      x, y: 2.85, w: 2.9, h: 0.35,
-      fontFace: FONT, fontSize: 11.5, color: C.slateMid, align: 'center',
-    });
+  s.addText('VERIFIED BY UNIT TESTS + MANUAL BROWSER CHECKS', {
+    x: 0.7, y: 2.0, w: 12, h: 0.3,
+    fontFace: FONT, fontSize: 11, bold: true, color: C.slateLight, charSpacing: 2,
   });
 
-  // Checks list — two columns
   const left = [
     'Explicit durations exact: 1.5h → 90 min, 45 mins → 45 min',
     'AM/PM rollover across noon: 11:30 AM → 12:00 PM → 1:00 PM',
     'No breaks written → no breaks injected',
-    'Task titled <script> is escaped, not executed',
+    'Start time honoured exactly: 8:30 → first block at 8:30 AM',
   ];
   const right = [
-    'Oct 30 / Oct 31 exports land on the right date, not today',
+    '.ics exports land on the right date, not today',
     'Bad API key or malformed reply → clear error, page still usable',
     'Weather API down → shows "Unavailable", never invents a reading',
     'Fresh user: double-click index.html and it just runs',
   ];
 
-  s.addText('VERIFIED BY UNIT TESTS + MANUAL BROWSER CHECKS', {
-    x: 0.7, y: 3.75, w: 12, h: 0.3,
-    fontFace: FONT, fontSize: 11, bold: true, color: C.slateLight, charSpacing: 2,
-  });
-
   function checkList(items, x) {
     items.forEach((t, i) => {
-      const y = 4.2 + i * 0.68;
+      const y = 2.55 + i * 0.82;
       s.addText('✓', {
         x, y, w: 0.35, h: 0.4,
-        fontFace: FONT, fontSize: 15, bold: true, color: C.emerald,
+        fontFace: FONT, fontSize: 16, bold: true, color: C.emerald,
       });
       s.addText(t, {
-        x: x + 0.38, y, w: 5.4, h: 0.6,
-        fontFace: FONT, fontSize: 12.5, color: C.slate, lineSpacingMultiple: 1.1,
+        x: x + 0.38, y, w: 5.4, h: 0.68,
+        fontFace: FONT, fontSize: 13, color: C.slate, lineSpacingMultiple: 1.15,
         fit: 'shrink',
       });
     });
@@ -445,9 +424,14 @@ function card(slide, opts) {
   checkList(left, 0.7);
   checkList(right, 6.9);
 
-  s.addText('npm test → 5 of 5 passed · node --check → passed · git diff --check → clean', {
-    x: 0.7, y: 6.95, w: 12, h: 0.35,
-    fontFace: FONT, fontSize: 12, color: C.slateMid, align: 'center',
+  s.addShape(pptx.ShapeType.roundRect, {
+    x: 0.7, y: 6.15, w: 12, h: 0.72, rectRadius: 0.06,
+    fill: { color: 'ECFDF5' }, line: { color: 'A7F3D0', width: 1 },
+  });
+  s.addText('npm test → 5 of 5 passed   ·   node --check → passed   ·   git diff --check → clean', {
+    x: 0.7, y: 6.15, w: 12, h: 0.72,
+    fontFace: FONT, fontSize: 14, bold: true, color: '047857',
+    align: 'center', valign: 'middle',
   });
 }
 
